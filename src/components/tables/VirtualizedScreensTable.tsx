@@ -1,6 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import type { Device } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
+import { Select } from "@/components/ui/Select";
 
 export type Screen = {
   id: string;
@@ -10,31 +13,59 @@ export type Screen = {
   city: string;
   status: "Online" | "Offline" | "Attention";
   lastSeen: string;
+  lastSeenMinutes: number | null;
 };
-
-const groups = ["North", "South", "East", "West", "Flagship"];
-const stores = ["Store 12", "Store 34", "Store 56", "Store 78", "Store 90"];
-const cities = ["Seattle", "Austin", "Denver", "Miami", "Chicago"];
-const statuses: Screen["status"][] = ["Online", "Offline", "Attention"];
 
 const lastSeenOptions = ["Any", "< 1h", "< 24h", "< 7d"];
 
-function buildScreens(count: number): Screen[] {
-  return Array.from({ length: count }).map((_, index) => {
-    const status = statuses[index % statuses.length];
-    return {
-      id: `SCR-${index + 1}`,
-      name: `Screen ${index + 1}`,
-      group: groups[index % groups.length],
-      store: stores[index % stores.length],
-      city: cities[index % cities.length],
-      status,
-      lastSeen: status === "Offline" ? "2h" : status === "Attention" ? "45m" : "5m"
-    };
-  });
+function parseLastSeenMinutes(value: string): number | null {
+  if (!value) return null;
+  const relativeMatch = value.match(/(\d+)([mhd])/i);
+  if (relativeMatch) {
+    const amount = Number(relativeMatch[1]);
+    const unit = relativeMatch[2].toLowerCase();
+    if (unit === "m") return amount;
+    if (unit === "h") return amount * 60;
+    if (unit === "d") return amount * 60 * 24;
+  }
+
+  const parsed = Date.parse(value);
+  if (!Number.isNaN(parsed)) {
+    const diffMs = Date.now() - parsed;
+    return Math.max(0, Math.round(diffMs / 60000));
+  }
+
+  return null;
 }
 
-export function VirtualizedScreensTable() {
+function mapDevice(device: Device): Screen {
+  const statusMap: Record<Device["status"], Screen["status"]> = {
+    online: "Online",
+    offline: "Offline",
+    attention: "Attention"
+  };
+
+  const lastSeen = device.last_seen || "Unknown";
+
+  return {
+    id: device.id,
+    name: device.name,
+    group: device.group,
+    store: device.store,
+    city: device.city,
+    status: statusMap[device.status] ?? "Attention",
+    lastSeen,
+    lastSeenMinutes: parseLastSeenMinutes(lastSeen)
+  };
+}
+
+export function VirtualizedScreensTable({ devices }: { devices: Device[] }) {
+  const screens = useMemo(() => devices.map(mapDevice), [devices]);
+  const groups = useMemo(() => Array.from(new Set(screens.map((screen) => screen.group))).sort(), [screens]);
+  const stores = useMemo(() => Array.from(new Set(screens.map((screen) => screen.store))).sort(), [screens]);
+  const cities = useMemo(() => Array.from(new Set(screens.map((screen) => screen.city))).sort(), [screens]);
+  const statuses: Screen["status"][] = ["Online", "Offline", "Attention"];
+
   const [groupFilter, setGroupFilter] = useState("All");
   const [storeFilter, setStoreFilter] = useState("All");
   const [cityFilter, setCityFilter] = useState("All");
@@ -43,24 +74,22 @@ export function VirtualizedScreensTable() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [scrollTop, setScrollTop] = useState(0);
 
-  const allScreens = useMemo(() => buildScreens(5000), []);
-
   const filtered = useMemo(() => {
-    return allScreens.filter((screen) => {
+    return screens.filter((screen) => {
       if (groupFilter !== "All" && screen.group !== groupFilter) return false;
       if (storeFilter !== "All" && screen.store !== storeFilter) return false;
       if (cityFilter !== "All" && screen.city !== cityFilter) return false;
       if (statusFilter !== "All" && screen.status !== statusFilter) return false;
-      if (lastSeenFilter !== "Any") {
-        if (lastSeenFilter === "< 1h" && screen.lastSeen === "2h") return false;
-        if (lastSeenFilter === "< 24h" && screen.lastSeen === "2h") return false;
-        if (lastSeenFilter === "< 7d" && screen.lastSeen === "7d+") return false;
+      if (lastSeenFilter !== "Any" && screen.lastSeenMinutes !== null) {
+        if (lastSeenFilter === "< 1h" && screen.lastSeenMinutes > 60) return false;
+        if (lastSeenFilter === "< 24h" && screen.lastSeenMinutes > 60 * 24) return false;
+        if (lastSeenFilter === "< 7d" && screen.lastSeenMinutes > 60 * 24 * 7) return false;
       }
       return true;
     });
-  }, [allScreens, groupFilter, storeFilter, cityFilter, statusFilter, lastSeenFilter]);
+  }, [screens, groupFilter, storeFilter, cityFilter, statusFilter, lastSeenFilter]);
 
-  const rowHeight = 48;
+  const rowHeight = 52;
   const containerHeight = 420;
   const overscan = 6;
   const totalHeight = filtered.length * rowHeight;
@@ -70,8 +99,6 @@ export function VirtualizedScreensTable() {
     Math.ceil((scrollTop + containerHeight) / rowHeight) + overscan
   );
   const visibleRows = filtered.slice(startIndex, endIndex);
-
-  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const handleToggle = (id: string) => {
     setSelectedIds((prev) => {
@@ -97,65 +124,71 @@ export function VirtualizedScreensTable() {
   return (
     <div className="grid" style={{ gap: "16px" }}>
       <div className="toolbar">
-        <select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
+        <Select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)} label="Group">
           <option value="All">All groups</option>
           {groups.map((group) => (
             <option key={group} value={group}>
               {group}
             </option>
           ))}
-        </select>
-        <select value={storeFilter} onChange={(event) => setStoreFilter(event.target.value)}>
+        </Select>
+        <Select value={storeFilter} onChange={(event) => setStoreFilter(event.target.value)} label="Store">
           <option value="All">All stores</option>
           {stores.map((store) => (
             <option key={store} value={store}>
               {store}
             </option>
           ))}
-        </select>
-        <select value={cityFilter} onChange={(event) => setCityFilter(event.target.value)}>
+        </Select>
+        <Select value={cityFilter} onChange={(event) => setCityFilter(event.target.value)} label="City">
           <option value="All">All cities</option>
           {cities.map((city) => (
             <option key={city} value={city}>
               {city}
             </option>
           ))}
-        </select>
-        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+        </Select>
+        <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} label="Status">
           <option value="All">All status</option>
           {statuses.map((status) => (
             <option key={status} value={status}>
               {status}
             </option>
           ))}
-        </select>
-        <select value={lastSeenFilter} onChange={(event) => setLastSeenFilter(event.target.value)}>
+        </Select>
+        <Select
+          value={lastSeenFilter}
+          onChange={(event) => setLastSeenFilter(event.target.value)}
+          label="Last seen"
+        >
           {lastSeenOptions.map((option) => (
             <option key={option} value={option}>
-              Last seen {option}
+              {option}
             </option>
           ))}
-        </select>
-        <button type="button" onClick={handleSelectAll}>
+        </Select>
+        <Button type="button" onClick={handleSelectAll} variant="outline">
           {selectedIds.size === filtered.length && filtered.length > 0
             ? "Clear selection"
             : `Select ${filtered.length} screens`}
-        </button>
+        </Button>
       </div>
 
       <div className="panel">
         <div className="toolbar" style={{ marginBottom: "12px" }}>
           <strong>{selectedIds.size} selected</strong>
-          <button type="button">Assign playlist</button>
-          <button type="button">Force resync</button>
-          <button type="button">Reboot (API placeholder)</button>
-          <button type="button">Move group</button>
+          <Button type="button">Assign playlist</Button>
+          <Button type="button" variant="secondary">
+            Force resync
+          </Button>
+          <Button type="button" variant="outline">
+            Reboot (API placeholder)
+          </Button>
+          <Button type="button" variant="outline">
+            Move group
+          </Button>
         </div>
-        <div
-          ref={containerRef}
-          className="virtual-container"
-          onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
-        >
+        <div className="virtual-container" onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
           <div style={{ height: totalHeight, position: "relative" }}>
             <div className="virtual-row header" style={{ position: "sticky" }}>
               <div>
@@ -170,6 +203,7 @@ export function VirtualizedScreensTable() {
               <div>Store</div>
               <div>City</div>
               <div>Status</div>
+              <div>Last seen</div>
             </div>
             {visibleRows.map((screen, index) => {
               const rowIndex = startIndex + index;
@@ -193,7 +227,7 @@ export function VirtualizedScreensTable() {
                   </div>
                   <div>
                     <strong>{screen.name}</strong>
-                    <div style={{ fontSize: "12px", color: "#6b7280" }}>{screen.lastSeen} ago</div>
+                    <div style={{ fontSize: "12px", color: "#6b7280" }}>{screen.id}</div>
                   </div>
                   <div>{screen.group}</div>
                   <div>{screen.store}</div>
@@ -219,9 +253,11 @@ export function VirtualizedScreensTable() {
                       {screen.status}
                     </span>
                   </div>
+                  <div>{screen.lastSeen}</div>
                 </div>
               );
             })}
+            {filtered.length === 0 && <div className="empty-state">No devices match the filters.</div>}
           </div>
         </div>
       </div>

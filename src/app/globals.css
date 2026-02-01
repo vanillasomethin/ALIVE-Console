@@ -99,21 +99,6 @@ h1, h2, h3 {
   align-items: center;
 }
 
-.toolbar select,
-.toolbar input,
-.toolbar button {
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-}
-
-.toolbar button {
-  background: #111827;
-  color: #ffffff;
-  border: none;
-}
-
 .panel {
   border: 1px solid #e5e7eb;
   padding: 16px;
@@ -123,9 +108,18 @@ h1, h2, h3 {
 
 .card {
   padding: 16px;
-  border-radius: 12px;
+  border-radius: 16px;
   background: #f9fafb;
   border: 1px solid #e5e7eb;
+}
+
+.card-header {
+  margin-bottom: 12px;
+}
+
+.card-content {
+  display: grid;
+  gap: 12px;
 }
 
 .list {
@@ -162,7 +156,7 @@ h1, h2, h3 {
 
 .virtual-row {
   display: grid;
-  grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr 1fr;
+  grid-template-columns: 0.5fr 1.4fr 1fr 1fr 1fr 1fr 1fr;
   gap: 12px;
   padding: 10px 12px;
   border-bottom: 1px solid #e5e7eb;
@@ -183,4 +177,54 @@ h1, h2, h3 {
 
 .virtual-row:nth-child(even) {
   background: #fafafa;
+}
+
+.btn {
+  border-radius: 10px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-default {
+  background: #111827;
+  color: #ffffff;
+}
+
+.btn-secondary {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.btn-outline {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  color: #111827;
+}
+
+.input-field {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.input,
+.select {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  font-size: 14px;
+}
+
+.input-label {
+  font-weight: 600;
+}
+
+.empty-state {
+  padding: 24px;
+  text-align: center;
+  color: #6b7280;
 }
