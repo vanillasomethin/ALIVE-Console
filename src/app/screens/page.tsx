@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { VirtualizedScreensTable } from "@/components/tables/VirtualizedScreensTable";
 import { Button } from "@/components/ui/Button";
@@ -52,6 +53,13 @@ export default function ScreensPage() {
       <section className="section">
         <h1>Screens</h1>
         <p>Monitor and control screens at scale with backend-connected device data.</p>
+        <div style={{ marginTop: "12px" }}>
+          <Link href="/screens/add">
+            <Button type="button" variant="outline">
+              Add screen
+            </Button>
+          </Link>
+        </div>
       </section>
 
       <section className="section">

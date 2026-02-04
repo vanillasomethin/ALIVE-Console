@@ -15,6 +15,11 @@ export type PairingResponse = {
   expires_at: string;
 };
 
+export type ClaimResponse = {
+  device_id: string;
+  device_name?: string;
+};
+
 export async function fetchDevices(): Promise<Device[]> {
   const response = await fetch(`${API_BASE_URL}/admin/devices`, { cache: "no-store" });
   if (!response.ok) {
@@ -32,6 +37,24 @@ export async function createPairingCode(): Promise<PairingResponse> {
   });
   if (!response.ok) {
     throw new Error("Failed to create pairing code");
+  }
+  return response.json();
+}
+
+export async function claimPairingCode(code: string, store: string, group: string): Promise<ClaimResponse> {
+  const response = await fetch(`${API_BASE_URL}/v1/admin/device/pairing/claim`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      code,
+      store,
+      group
+    })
+  });
+  if (!response.ok) {
+    throw new Error("Failed to claim pairing code");
   }
   return response.json();
 }
